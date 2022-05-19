@@ -4,6 +4,8 @@
 #include <vector>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -37,8 +39,10 @@ std::string trim(const std::string& s)
 
 //
 
-bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
+bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteData, const glm::mat4& parentMatrix, size_t& offset, const std::vector<std::string>& bvhLines)
 {
+	glm::mat4 currentMatrix = parentMatrix;
+
 	while (offset < bvhLines.size())
 	{
 		const std::string& line = bvhLines[offset];
@@ -47,7 +51,6 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 		{
 			size_t childNodeIndex = glTF["nodes"].size();
 			glTF["scenes"][0]["nodes"].push_back(childNodeIndex);
-			glTF["scenes"][0]["nodes"].push_back(childNodeIndex);
 
 			glTF["skins"][0]["joints"].push_back(childNodeIndex);
 
@@ -55,7 +58,7 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
 
 			offset++;
-			if (!generateHierarchy(glTF, childNodeIndex, data, offset, bvhLines))
+			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, offset, bvhLines))
 			{
 				return false;
 			}
@@ -75,7 +78,7 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
 
 			offset++;
-			if (!generateHierarchy(glTF, childNodeIndex, data, offset, bvhLines))
+			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, offset, bvhLines))
 			{
 				return false;
 			}
@@ -96,7 +99,7 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 			glTF["nodes"][childNodeIndex]["name"] = glTF["nodes"][nodeIndex]["name"].get<std::string>() + " End";
 
 			offset++;
-			if (!generateHierarchy(glTF, childNodeIndex, data, offset, bvhLines))
+			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, offset, bvhLines))
 			{
 				return false;
 			}
@@ -122,10 +125,18 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 			glTF["nodes"][nodeIndex]["translation"].push_back(x);
 			glTF["nodes"][nodeIndex]["translation"].push_back(y);
 			glTF["nodes"][nodeIndex]["translation"].push_back(z);
+
+			currentMatrix = parentMatrix * glm::translate(glm::mat4(), glm::vec3(x, y, z));
 		}
 		else if (line.rfind("}", 0) == 0)
 		{
 			offset++;
+
+			glm::mat4 inverseMatrix = glm::inverse(parentMatrix);
+
+			size_t offset = byteData.size();
+			byteData.resize(byteData.size() + 16 * sizeof(float));
+			memcpy(byteData.data() + offset, glm::value_ptr(inverseMatrix), 16 * sizeof(float));
 
 			// Leave node
 			return true;
@@ -140,7 +151,7 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 	return true;
 }
 
-bool generateMotion(json& glTF, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
+bool generateMotion(json& glTF, std::vector<uint8_t>& byteData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	while (offset < bvhLines.size())
 	{
@@ -152,7 +163,7 @@ bool generateMotion(json& glTF, std::string& data, size_t& offset, const std::ve
 	return true;
 }
 
-bool generate(json& glTF, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
+bool generate(json& glTF, std::vector<uint8_t>& byteData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	while (offset < bvhLines.size())
 	{
@@ -161,7 +172,7 @@ bool generate(json& glTF, std::string& data, size_t& offset, const std::vector<s
 		if (line == "HIERARCHY")
 		{
 			offset++;
-			if (!generateHierarchy(glTF, 0, data, offset, bvhLines))
+			if (!generateHierarchy(glTF, 0, byteData, glm::mat4(1.0f), offset, bvhLines))
 			{
 				return false;
 			}
@@ -169,7 +180,7 @@ bool generate(json& glTF, std::string& data, size_t& offset, const std::vector<s
 		else if (line == "MOTION")
 		{
 			offset++;
-			if (!generateMotion(glTF, data, offset, bvhLines))
+			if (!generateMotion(glTF, byteData, offset, bvhLines))
 			{
 				return false;
 			}
@@ -236,6 +247,9 @@ int main(int argc, char *argv[])
 {
 	std::string bvhFilename = "Example1.bvh";
 
+	std::string saveGltfName = "untitled.gltf";
+	std::string saveBinaryName = "untitled.bin";
+
     for (int i = 0; i < argc; i++)
     {
         if (strcmp(argv[i], "-f") == 0 && (i + 1 < argc))
@@ -265,6 +279,7 @@ int main(int argc, char *argv[])
     // glTF setup
     //
 
+	std::vector<uint8_t> byteData;
 	std::string data;
 
     json glTF = json::object();
@@ -275,9 +290,23 @@ int main(int argc, char *argv[])
     glTF["scenes"].push_back(json::object());
     glTF["scenes"][0]["nodes"] = json::array();
 
+    glTF["buffers"] = json::array();
+    glTF["buffers"].push_back(json::object());
+    glTF["buffers"][0]["uri"] = saveBinaryName;
+
+    glTF["bufferViews"] = json::array();
+    glTF["bufferViews"].push_back(json::object());
+    glTF["bufferViews"][0]["buffer"] = 0;
+
+    glTF["accessors"] = json::array();
+    glTF["accessors"].push_back(json::object());
+    glTF["accessors"][0]["componentType"] = 5126;
+    glTF["accessors"][0]["type"] = "MAT4";
+
     glTF["skins"] = json::array();
     glTF["skins"].push_back(json::object());
     glTF["skins"][0]["joints"] = json::array();
+    glTF["skins"][0]["inverseBindMatrices"] = 0;
 
     glTF["nodes"] = json::array();
 
@@ -286,12 +315,20 @@ int main(int argc, char *argv[])
     //
 
     size_t offset = 0;
-    if (!generate(glTF, data, offset, bvhLines))
+    if (!generate(glTF, byteData, offset, bvhLines))
     {
     	printf("Error: Could not convert BVH to glTF\n");
 
     	return -1;
     }
+
+    data.resize(byteData.size());
+    // Copy current content
+    memcpy(data.data(), byteData.data(), byteData.size());
+
+    glTF["buffers"][0]["byteLength"] = data.size();
+    glTF["bufferViews"][0]["byteLength"] = data.size();
+    glTF["accessors"][0]["count"] = glTF["nodes"].size();
 
     size_t nodeIndex = glTF["nodes"].size();
 
@@ -305,16 +342,12 @@ int main(int argc, char *argv[])
 	// Saving everything
 	//
 
-    std::string saveBinaryName = "untitled.bin";
-
 	if (!saveFile(data, saveBinaryName))
 	{
 		printf("Error: Could not save generated bin file '%s'\n", saveBinaryName.c_str());
 
 		return -1;
 	}
-
-    std::string saveGltfName = "untitled.gltf";
 
 	if (!saveFile(glTF.dump(3), saveGltfName))
 	{
