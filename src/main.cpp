@@ -9,6 +9,80 @@
 
 using json = nlohmann::json;
 
+//
+
+bool generateHierarchy(json& glTF, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
+{
+	while (offset < bvhLines.size())
+	{
+		offset++;
+
+		// ToDo: Implement.
+	}
+
+	return true;
+}
+
+bool generateMotion(json& glTF, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
+{
+	while (offset < bvhLines.size())
+	{
+		offset++;
+
+		// ToDo: Implement.
+	}
+
+	return true;
+}
+
+bool generate(json& glTF, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
+{
+	while (offset < bvhLines.size())
+	{
+		const std::string& line = bvhLines[offset];
+
+		if (line == "HIERARCHY")
+		{
+			offset++;
+			if (!generateHierarchy(glTF, data, offset, bvhLines))
+			{
+				return false;
+			}
+		}
+		else if (line == "MOTION")
+		{
+			offset++;
+			if (!generateMotion(glTF, data, offset, bvhLines))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			printf("Unknown '%s'\n", line.c_str());
+		}
+	}
+
+	return true;
+}
+
+//
+
+void gatherLines(std::vector<std::string>& bvhLines, const std::string& bvh)
+{
+	std::stringstream stringStream(bvh);
+	std::string line;
+
+	while(std::getline(stringStream, line, '\n'))
+	{
+		// Removing leading spaces and tabs.
+		line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), ' ')));
+		line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), '\t')));
+
+		bvhLines.push_back(line);
+	}
+}
+
 bool loadFile(std::string& output, const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -55,7 +129,7 @@ int main(int argc, char *argv[])
     }
 
     //
-    // BVH loading and parsing
+    // BVH loading
     //
 
     std::string bvhContent;
@@ -68,16 +142,32 @@ int main(int argc, char *argv[])
 
 	printf("Info: Loaded BVH '%s'\n", bvhFilename.c_str());
 
-	// ToDO: Implement.
+	std::vector<std::string> bvhLines;
+	gatherLines(bvhLines, bvhContent);
 
     //
-    // glTF setup and conversion
+    // glTF setup
     //
 
-    json glTF = json::object();
 	std::string data;
 
-	// ToDO: Implement.
+    json glTF = json::object();
+    glTF["asset"] = json::object();
+    glTF["asset"]["version"] = "2.0";
+
+    glTF["nodes"] = json::array();
+
+    //
+    // BVH to glTF
+    //
+
+    size_t offset = 0;
+    if (!generate(glTF, data, offset, bvhLines))
+    {
+    	printf("Error: Could not convert BVH to glTF\n");
+
+    	return -1;
+    }
 
     //
 	// Saving everything
