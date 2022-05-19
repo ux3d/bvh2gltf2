@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+.settings
+/Debug/
+/Release/
+/build/
+untitled.bin
+untitled.gltf
