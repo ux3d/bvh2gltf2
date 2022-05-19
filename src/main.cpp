@@ -79,6 +79,10 @@ void gatherLines(std::vector<std::string>& bvhLines, const std::string& bvh)
 		line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), ' ')));
 		line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), '\t')));
 
+		// Removing trailing spaces and carriage return.
+		line.erase(std::find_if(line.rbegin(), line.rend(), std::bind1st(std::not_equal_to<char>(), ' ')).base(), line.end());
+		line.erase(std::find_if(line.rbegin(), line.rend(), std::bind1st(std::not_equal_to<char>(), '\r')).base(), line.end());
+
 		bvhLines.push_back(line);
 	}
 }
