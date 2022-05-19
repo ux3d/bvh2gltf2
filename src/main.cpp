@@ -47,6 +47,9 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 		{
 			size_t childNodeIndex = glTF["nodes"].size();
 			glTF["scenes"][0]["nodes"].push_back(childNodeIndex);
+			glTF["scenes"][0]["nodes"].push_back(childNodeIndex);
+
+			glTF["skins"][0]["joints"].push_back(childNodeIndex);
 
 			glTF["nodes"].push_back(json::object());
 			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
@@ -66,6 +69,8 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 			}
 			glTF["nodes"][nodeIndex]["children"].push_back(childNodeIndex);
 
+			glTF["skins"][0]["joints"].push_back(childNodeIndex);
+
 			glTF["nodes"].push_back(json::object());
 			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
 
@@ -83,6 +88,8 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 				glTF["nodes"][nodeIndex]["children"] = json::array();
 			}
 			glTF["nodes"][nodeIndex]["children"].push_back(childNodeIndex);
+
+			glTF["skins"][0]["joints"].push_back(childNodeIndex);
 
 			glTF["nodes"].push_back(json::object());
 			// Leaf has no name, so generate one from the parent node.
@@ -251,6 +258,10 @@ int main(int argc, char *argv[])
     glTF["scenes"] = json::array();
     glTF["scenes"].push_back(json::object());
     glTF["scenes"][0]["children"] = json::array();
+
+    glTF["skins"] = json::array();
+    glTF["skins"].push_back(json::object());
+    glTF["skins"][0]["joints"] = json::array();
 
     glTF["nodes"] = json::array();
 
