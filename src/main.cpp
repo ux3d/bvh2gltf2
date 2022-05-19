@@ -107,6 +107,22 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& 
 
 			// Do nothing
 		}
+		else if (line.rfind("OFFSET", 0) == 0)
+		{
+			offset++;
+
+			char buffer[7];
+			float x = 0.0f;
+			float y = 0.0f;
+			float z = 0.0f;
+
+			sscanf(line.c_str(), "%s %f %f %f", buffer, &x, &y, &z);
+
+			glTF["nodes"][nodeIndex]["translation"] = json::array();
+			glTF["nodes"][nodeIndex]["translation"].push_back(x);
+			glTF["nodes"][nodeIndex]["translation"].push_back(y);
+			glTF["nodes"][nodeIndex]["translation"].push_back(z);
+		}
 		else if (line.rfind("}", 0) == 0)
 		{
 			offset++;
@@ -257,7 +273,7 @@ int main(int argc, char *argv[])
 
     glTF["scenes"] = json::array();
     glTF["scenes"].push_back(json::object());
-    glTF["scenes"][0]["children"] = json::array();
+    glTF["scenes"][0]["nodes"] = json::array();
 
     glTF["skins"] = json::array();
     glTF["skins"].push_back(json::object());
@@ -276,6 +292,14 @@ int main(int argc, char *argv[])
 
     	return -1;
     }
+
+    size_t nodeIndex = glTF["nodes"].size();
+
+    glTF["scenes"][0]["nodes"].push_back(nodeIndex);
+
+    glTF["nodes"].push_back(json::object());
+    glTF["nodes"][nodeIndex]["name"] = "Mesh";
+    glTF["nodes"][nodeIndex]["skin"] = 0;
 
     //
 	// Saving everything
