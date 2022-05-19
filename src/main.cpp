@@ -11,13 +11,107 @@ using json = nlohmann::json;
 
 //
 
-bool generateHierarchy(json& glTF, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
+std::string trim(const std::string& s)
+{
+	std::string line = s;
+
+	// Replacing tabs with a space.
+	std::replace(line.begin(), line.end(), '\t', ' ');
+	// Replacing carriage returns with a space.
+	std::replace(line.begin(), line.end(), '\r', ' ');
+
+	// Removing leading spaces.
+	line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), ' ')));
+	// Removing trailing spaces.
+	line.erase(std::find_if(line.rbegin(), line.rend(), std::bind1st(std::not_equal_to<char>(), ' ')).base(), line.end());
+
+	// Removing duplicate spaces.
+	auto it = std::unique(line.begin(), line.end(),
+	            [](char const &lhs, char const &rhs) {
+	                return (lhs == rhs) && (lhs == ' ');
+	            });
+	line.erase(it, line.end());
+
+	return line;
+}
+
+//
+
+bool generateHierarchy(json& glTF, size_t nodeIndex, std::string& data, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	while (offset < bvhLines.size())
 	{
-		offset++;
+		const std::string& line = bvhLines[offset];
 
-		// ToDo: Implement.
+		if (line.rfind("ROOT", 0) == 0)
+		{
+			size_t childNodeIndex = glTF["nodes"].size();
+			glTF["scenes"][0]["nodes"].push_back(childNodeIndex);
+
+			glTF["nodes"].push_back(json::object());
+			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
+
+			offset++;
+			if (!generateHierarchy(glTF, childNodeIndex, data, offset, bvhLines))
+			{
+				return false;
+			}
+		}
+		else if (line.rfind("JOINT", 0) == 0)
+		{
+			size_t childNodeIndex = glTF["nodes"].size();
+			if (!glTF["nodes"][nodeIndex].contains("children"))
+			{
+				glTF["nodes"][nodeIndex]["children"] = json::array();
+			}
+			glTF["nodes"][nodeIndex]["children"].push_back(childNodeIndex);
+
+			glTF["nodes"].push_back(json::object());
+			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
+
+			offset++;
+			if (!generateHierarchy(glTF, childNodeIndex, data, offset, bvhLines))
+			{
+				return false;
+			}
+		}
+		else if (line.rfind("End Site", 0) == 0)
+		{
+			size_t childNodeIndex = glTF["nodes"].size();
+			if (!glTF["nodes"][nodeIndex].contains("children"))
+			{
+				glTF["nodes"][nodeIndex]["children"] = json::array();
+			}
+			glTF["nodes"][nodeIndex]["children"].push_back(childNodeIndex);
+
+			glTF["nodes"].push_back(json::object());
+			// Leaf has no name, so generate one from the parent node.
+			glTF["nodes"][childNodeIndex]["name"] = glTF["nodes"][nodeIndex]["name"].get<std::string>() + " End";
+
+			offset++;
+			if (!generateHierarchy(glTF, childNodeIndex, data, offset, bvhLines))
+			{
+				return false;
+			}
+		}
+		else if (line.rfind("{", 0) == 0)
+		{
+			offset++;
+
+			// Do nothing
+		}
+		else if (line.rfind("}", 0) == 0)
+		{
+			offset++;
+
+			// Leave node
+			return true;
+		}
+		else
+		{
+			offset++;
+			printf("Unknown '%s'\n", line.c_str());
+		}
 	}
 
 	return true;
@@ -44,7 +138,7 @@ bool generate(json& glTF, std::string& data, size_t& offset, const std::vector<s
 		if (line == "HIERARCHY")
 		{
 			offset++;
-			if (!generateHierarchy(glTF, data, offset, bvhLines))
+			if (!generateHierarchy(glTF, 0, data, offset, bvhLines))
 			{
 				return false;
 			}
@@ -59,6 +153,7 @@ bool generate(json& glTF, std::string& data, size_t& offset, const std::vector<s
 		}
 		else
 		{
+			offset++;
 			printf("Unknown '%s'\n", line.c_str());
 		}
 	}
@@ -75,13 +170,7 @@ void gatherLines(std::vector<std::string>& bvhLines, const std::string& bvh)
 
 	while(std::getline(stringStream, line, '\n'))
 	{
-		// Removing leading spaces and tabs.
-		line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), ' ')));
-		line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), '\t')));
-
-		// Removing trailing spaces and carriage return.
-		line.erase(std::find_if(line.rbegin(), line.rend(), std::bind1st(std::not_equal_to<char>(), ' ')).base(), line.end());
-		line.erase(std::find_if(line.rbegin(), line.rend(), std::bind1st(std::not_equal_to<char>(), '\r')).base(), line.end());
+		line = trim(line);
 
 		bvhLines.push_back(line);
 	}
@@ -158,6 +247,10 @@ int main(int argc, char *argv[])
     json glTF = json::object();
     glTF["asset"] = json::object();
     glTF["asset"]["version"] = "2.0";
+
+    glTF["scenes"] = json::array();
+    glTF["scenes"].push_back(json::object());
+    glTF["scenes"][0]["children"] = json::array();
 
     glTF["nodes"] = json::array();
 
