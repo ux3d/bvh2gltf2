@@ -13,6 +13,18 @@ using json = nlohmann::json;
 
 //
 
+struct FrameData {
+	std::vector<float> values;
+};
+
+struct MotionData {
+	size_t frames = 0;
+	float frameTime = 0.0f;
+	std::vector<FrameData> frameDatas;
+};
+
+//
+
 std::string trim(const std::string& s)
 {
 	std::string line = s;
@@ -62,6 +74,9 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			{
 				return false;
 			}
+
+			// Leave HIERARCHY section
+			return true;
 		}
 		else if (line.rfind("JOINT", 0) == 0)
 		{
@@ -108,7 +123,7 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 		{
 			offset++;
 
-			// Do nothing
+			printf("Entering node '%s'\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str());
 		}
 		else if (line.rfind("OFFSET", 0) == 0)
 		{
@@ -128,6 +143,13 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 
 			currentMatrix = parentMatrix * glm::translate(glm::mat4(), glm::vec3(x, y, z));
 		}
+		else if (line.rfind("CHANNELS", 0) == 0)
+		{
+			offset++;
+
+			// TODO: Implement.
+			printf("Debug (HIERARCHY) '%s'\n", line.c_str());
+		}
 		else if (line.rfind("}", 0) == 0)
 		{
 			offset++;
@@ -139,31 +161,72 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			memcpy(byteData.data() + offset, glm::value_ptr(inverseMatrix), 16 * sizeof(float));
 
 			// Leave node
+			printf("Leaving node '%s'\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str());
 			return true;
 		}
 		else
 		{
-			offset++;
-			printf("Unknown '%s'\n", line.c_str());
+			printf("Unknown (HIERARCHY) '%s'\n", line.c_str());
+			return false;
 		}
 	}
 
 	return true;
 }
 
-bool generateMotion(json& glTF, std::vector<uint8_t>& byteData, size_t& offset, const std::vector<std::string>& bvhLines)
+bool gatherSamples(MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	while (offset < bvhLines.size())
 	{
+		const std::string& line = bvhLines[offset];
+
 		offset++;
 
-		// ToDo: Implement.
+		// TODO: Implement.
+		printf("Debug (MOTION) '%s'\n", line.c_str());
 	}
 
 	return true;
 }
 
-bool generate(json& glTF, std::vector<uint8_t>& byteData, size_t& offset, const std::vector<std::string>& bvhLines)
+bool generateMotion(MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
+{
+	while (offset < bvhLines.size())
+	{
+		const std::string& line = bvhLines[offset];
+
+		if (line.rfind("Frames:", 0) == 0)
+		{
+			motionData.frames = (size_t)std::stoul(line.substr(line.rfind(" ") + 1));
+			motionData.frameDatas.resize(motionData.frames);
+
+			offset++;
+		}
+		else if (line.rfind("Frame Time:", 0) == 0)
+		{
+			motionData.frameTime = std::stof(line.substr(line.rfind(" ") + 1));
+
+			offset++;
+			if (!gatherSamples(motionData, offset, bvhLines))
+			{
+				return false;
+			}
+
+			// Leave MOTION section
+			return true;
+		}
+		else
+		{
+			printf("Unknown (MOTION) '%s'\n", line.c_str());
+
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool generate(json& glTF, std::vector<uint8_t>& byteData, MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	while (offset < bvhLines.size())
 	{
@@ -180,7 +243,7 @@ bool generate(json& glTF, std::vector<uint8_t>& byteData, size_t& offset, const 
 		else if (line == "MOTION")
 		{
 			offset++;
-			if (!generateMotion(glTF, byteData, offset, bvhLines))
+			if (!generateMotion(motionData, offset, bvhLines))
 			{
 				return false;
 			}
@@ -314,8 +377,10 @@ int main(int argc, char *argv[])
     // BVH to glTF
     //
 
+    MotionData motionData;
+
     size_t offset = 0;
-    if (!generate(glTF, byteData, offset, bvhLines))
+    if (!generate(glTF, byteData, motionData, offset, bvhLines))
     {
     	printf("Error: Could not convert BVH to glTF\n");
 
