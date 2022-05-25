@@ -35,9 +35,9 @@ std::string trim(const std::string& s)
 	std::replace(line.begin(), line.end(), '\r', ' ');
 
 	// Removing leading spaces.
-	line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind1st(std::not_equal_to<char>(), ' ')));
+	line.erase(line.begin(), std::find_if(line.begin(), line.end(), std::bind(std::not_equal_to<char>(), std::placeholders::_1, ' ')));
 	// Removing trailing spaces.
-	line.erase(std::find_if(line.rbegin(), line.rend(), std::bind1st(std::not_equal_to<char>(), ' ')).base(), line.end());
+	line.erase(std::find_if(line.rbegin(), line.rend(), std::bind(std::not_equal_to<char>(),  std::placeholders::_1, ' ')).base(), line.end());
 
 	// Removing duplicate spaces.
 	auto it = std::unique(line.begin(), line.end(),
