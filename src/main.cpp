@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
 
 #include <nlohmann/json.hpp>
@@ -469,16 +470,16 @@ int main(int argc, char *argv[])
 
     //
 
-    size_t binaryOffset = 0;
+    size_t byteOffset = 0;
 
     data.resize(byteData.size());
     // Copy current content
-    memcpy(data.data(), byteData.data(), byteData.size());
+    memcpy(data.data() + byteOffset, byteData.data(), byteData.size());
 
     glTF["bufferViews"][0]["byteLength"] = data.size();
     glTF["accessors"][0]["count"] = glTF["nodes"].size();
 
-    binaryOffset = byteData.size();
+    byteOffset = data.size();
 
     //
 
@@ -489,11 +490,110 @@ int main(int argc, char *argv[])
 
 		if (currentNode.positionChannels.size() > 0)
 		{
-			// TODO: Implement.
+			size_t bufferViewIndex = glTF["bufferViews"].size();
+
+		    glTF["bufferViews"].push_back(json::object());
+		    glTF["bufferViews"][bufferViewIndex]["buffer"] = 0;
+		    glTF["bufferViews"][bufferViewIndex]["byteOffset"] = byteOffset;
+		    glTF["bufferViews"][bufferViewIndex]["byteLength"] = motionData.frames * 3 * sizeof(float);
+
+		    //
+
+			size_t accessorIndex = glTF["accessors"].size();
+
+		    glTF["accessors"].push_back(json::object());
+		    glTF["accessors"][accessorIndex]["bufferView"] = bufferViewIndex;
+		    glTF["accessors"][accessorIndex]["componentType"] = 5126;
+		    glTF["accessors"][accessorIndex]["count"] = motionData.frames;
+		    glTF["accessors"][accessorIndex]["type"] = "VEC3";
+
+		    //
+
+		    std::vector<float> finalPositionData(motionData.frames * 3);
+
+		    for (size_t currentFrameIndex = 0; currentFrameIndex < motionData.frames; currentFrameIndex++)
+		    {
+		    	for (size_t i = 0; i < currentNode.positionChannels.size(); i++)
+		    	{
+		    		if (currentNode.positionChannels[i] == "Xposition")
+		    		{
+		    			finalPositionData[currentFrameIndex * 3 + 0] = currentNode.positionData[currentFrameIndex * currentNode.positionChannels.size() + i];
+		    		}
+		    		else if (currentNode.positionChannels[i] == "Yposition")
+		    		{
+		    			finalPositionData[currentFrameIndex * 3 + 1] = currentNode.positionData[currentFrameIndex * currentNode.positionChannels.size() + i];
+		    		}
+		    		else if (currentNode.positionChannels[i] == "Zposition")
+		    		{
+		    			finalPositionData[currentFrameIndex * 3 + 2] = currentNode.positionData[currentFrameIndex * currentNode.positionChannels.size() + i];
+		    		}
+		    	}
+		    }
+
+		    data.resize(data.size() + finalPositionData.size() * sizeof(float));
+		    memcpy(data.data() + byteOffset, finalPositionData.data(), finalPositionData.size() * sizeof(float));
+
+		    byteOffset = data.size();
+
+			// TODO: Implement animation sampler etc.
 		}
 		if (currentNode.rotationChannels.size() > 0)
 		{
-			// TODO: Implement.
+			size_t bufferViewIndex = glTF["bufferViews"].size();
+
+		    glTF["bufferViews"].push_back(json::object());
+		    glTF["bufferViews"][bufferViewIndex]["buffer"] = 0;
+		    glTF["bufferViews"][bufferViewIndex]["byteOffset"] = byteOffset;
+		    glTF["bufferViews"][bufferViewIndex]["byteLength"] = motionData.frames * 4 * sizeof(float);
+
+		    //
+
+			size_t accessorIndex = glTF["accessors"].size();
+
+		    glTF["accessors"].push_back(json::object());
+		    glTF["accessors"][accessorIndex]["bufferView"] = bufferViewIndex;
+		    glTF["accessors"][accessorIndex]["componentType"] = 5126;
+		    glTF["accessors"][accessorIndex]["count"] = motionData.frames;
+		    glTF["accessors"][accessorIndex]["type"] = "VEC4";
+
+		    //
+
+		    std::vector<float> finalRotationData(motionData.frames * 4);
+
+		    for (size_t currentFrameIndex = 0; currentFrameIndex < motionData.frames; currentFrameIndex++)
+		    {
+		    	glm::mat4 matrix(1.0f);
+
+		    	for (size_t i = 0; i < currentNode.positionChannels.size(); i++)
+		    	{
+		    		if (currentNode.positionChannels[i] == "Xrotation")
+		    		{
+		    			matrix = glm::rotate(matrix, currentNode.rotationData[currentFrameIndex * currentNode.rotationChannels.size() + i], glm::vec3(1.0f, 0.0f, 0.0f));
+		    		}
+		    		else if (currentNode.positionChannels[i] == "Yrotation")
+		    		{
+		    			matrix = glm::rotate(matrix, currentNode.rotationData[currentFrameIndex * currentNode.rotationChannels.size() + i], glm::vec3(0.0f, 1.0f, 0.0f));
+		    		}
+		    		else if (currentNode.positionChannels[i] == "Zrotation")
+		    		{
+		    			matrix = glm::rotate(matrix, currentNode.rotationData[currentFrameIndex * currentNode.rotationChannels.size() + i], glm::vec3(0.0f, 0.0f, 1.0f));
+		    		}
+		    	}
+
+		    	glm::quat rotation = glm::toQuat(matrix);
+
+		    	finalRotationData[currentFrameIndex * 4 + 0] = rotation.x;
+		    	finalRotationData[currentFrameIndex * 4 + 1] = rotation.y;
+		    	finalRotationData[currentFrameIndex * 4 + 2] = rotation.z;
+		    	finalRotationData[currentFrameIndex * 4 + 3] = rotation.w;
+		    }
+
+		    data.resize(data.size() + finalRotationData.size() * sizeof(float));
+		    memcpy(data.data() + byteOffset, finalRotationData.data(), finalRotationData.size() * sizeof(float));
+
+		    byteOffset = data.size();
+
+			// TODO: Implement animation sampler etc.
 		}
 	}
 
