@@ -13,6 +13,14 @@ using json = nlohmann::json;
 
 //
 
+struct NodeData {
+	std::vector<std::string> channels;
+};
+
+struct HierarchyData {
+	std::vector<NodeData> nodeDatas;
+};
+
 struct FrameData {
 	std::vector<float> values;
 };
@@ -51,7 +59,7 @@ std::string trim(const std::string& s)
 
 //
 
-bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteData, const glm::mat4& parentMatrix, size_t& offset, const std::vector<std::string>& bvhLines)
+bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteData, const glm::mat4& parentMatrix, HierarchyData& hierarchyData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	glm::mat4 currentMatrix = parentMatrix;
 
@@ -69,8 +77,10 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			glTF["nodes"].push_back(json::object());
 			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
 
+			hierarchyData.nodeDatas.push_back(NodeData());
+
 			offset++;
-			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, offset, bvhLines))
+			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, hierarchyData, offset, bvhLines))
 			{
 				return false;
 			}
@@ -92,8 +102,10 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			glTF["nodes"].push_back(json::object());
 			glTF["nodes"][childNodeIndex]["name"] = line.substr(line.rfind(" ") + 1);
 
+			hierarchyData.nodeDatas.push_back(NodeData());
+
 			offset++;
-			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, offset, bvhLines))
+			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, hierarchyData, offset, bvhLines))
 			{
 				return false;
 			}
@@ -113,8 +125,10 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			// Leaf has no name, so generate one from the parent node.
 			glTF["nodes"][childNodeIndex]["name"] = glTF["nodes"][nodeIndex]["name"].get<std::string>() + " End";
 
+			hierarchyData.nodeDatas.push_back(NodeData());
+
 			offset++;
-			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, offset, bvhLines))
+			if (!generateHierarchy(glTF, childNodeIndex, byteData, currentMatrix, hierarchyData, offset, bvhLines))
 			{
 				return false;
 			}
@@ -147,8 +161,22 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 		{
 			offset++;
 
-			// TODO: Implement.
-			printf("Debug (HIERARCHY) '%s'\n", line.c_str());
+			std::stringstream stringStream(line);
+			std::string token;
+			size_t currentToken = 0;
+			while(std::getline(stringStream, token, ' '))
+			{
+				if (currentToken == 1)
+				{
+					printf("Node '%s' has %s channels\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str(), token.c_str());
+				}
+				else if (currentToken >= 2)
+				{
+					hierarchyData.nodeDatas[nodeIndex].channels.push_back(token);
+				}
+
+				currentToken++;
+			}
 		}
 		else if (line.rfind("}", 0) == 0)
 		{
@@ -176,20 +204,29 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 
 bool gatherSamples(MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
+	size_t currentFrame = 0;
+
 	while (offset < bvhLines.size())
 	{
 		const std::string& line = bvhLines[offset];
 
 		offset++;
 
-		// TODO: Implement.
-		printf("Debug (MOTION) '%s'\n", line.c_str());
+		//
+
+		std::stringstream stringStream(line);
+		std::string token;
+		while(std::getline(stringStream, token, ' '))
+		{
+			motionData.frameDatas[currentFrame].values.push_back(std::stof(token));
+		}
+		currentFrame++;
 	}
 
 	return true;
 }
 
-bool generateMotion(MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
+bool generateMotion(HierarchyData& hierarchyData, MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	while (offset < bvhLines.size())
 	{
@@ -226,7 +263,7 @@ bool generateMotion(MotionData& motionData, size_t& offset, const std::vector<st
 	return true;
 }
 
-bool generate(json& glTF, std::vector<uint8_t>& byteData, MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
+bool generate(json& glTF, std::vector<uint8_t>& byteData, HierarchyData& hierarchyData, MotionData& motionData, size_t& offset, const std::vector<std::string>& bvhLines)
 {
 	while (offset < bvhLines.size())
 	{
@@ -235,7 +272,7 @@ bool generate(json& glTF, std::vector<uint8_t>& byteData, MotionData& motionData
 		if (line == "HIERARCHY")
 		{
 			offset++;
-			if (!generateHierarchy(glTF, 0, byteData, glm::mat4(1.0f), offset, bvhLines))
+			if (!generateHierarchy(glTF, 0, byteData, glm::mat4(1.0f), hierarchyData, offset, bvhLines))
 			{
 				return false;
 			}
@@ -243,7 +280,7 @@ bool generate(json& glTF, std::vector<uint8_t>& byteData, MotionData& motionData
 		else if (line == "MOTION")
 		{
 			offset++;
-			if (!generateMotion(motionData, offset, bvhLines))
+			if (!generateMotion(hierarchyData, motionData, offset, bvhLines))
 			{
 				return false;
 			}
@@ -377,15 +414,22 @@ int main(int argc, char *argv[])
     // BVH to glTF
     //
 
+    HierarchyData hierarchyData;
     MotionData motionData;
 
     size_t offset = 0;
-    if (!generate(glTF, byteData, motionData, offset, bvhLines))
+    if (!generate(glTF, byteData, hierarchyData, motionData, offset, bvhLines))
     {
     	printf("Error: Could not convert BVH to glTF\n");
 
     	return -1;
     }
+
+    //
+
+    // TODO: Generate animations, as we now do have all the data.
+
+    //
 
     data.resize(byteData.size());
     // Copy current content
