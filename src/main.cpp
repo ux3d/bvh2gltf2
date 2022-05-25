@@ -467,17 +467,37 @@ int main(int argc, char *argv[])
     	}
     }
 
-    // TODO: Generate animations, as we now do have all the data sorted out.
-
     //
+
+    size_t binaryOffset = 0;
 
     data.resize(byteData.size());
     // Copy current content
     memcpy(data.data(), byteData.data(), byteData.size());
 
-    glTF["buffers"][0]["byteLength"] = data.size();
     glTF["bufferViews"][0]["byteLength"] = data.size();
     glTF["accessors"][0]["count"] = glTF["nodes"].size();
+
+    binaryOffset = byteData.size();
+
+    //
+
+    // Generate animations, as we now do have all the data sorted out.
+	for (size_t currentNodeIndex = 0; currentNodeIndex < hierarchyData.nodeDatas.size(); currentNodeIndex++)
+	{
+		auto& currentNode = hierarchyData.nodeDatas[currentNodeIndex];
+
+		if (currentNode.positionChannels.size() > 0)
+		{
+			// TODO: Implement.
+		}
+		if (currentNode.rotationChannels.size() > 0)
+		{
+			// TODO: Implement.
+		}
+	}
+
+    //
 
     size_t nodeIndex = glTF["nodes"].size();
 
@@ -486,6 +506,8 @@ int main(int argc, char *argv[])
     glTF["nodes"].push_back(json::object());
     glTF["nodes"][nodeIndex]["name"] = "Mesh";
     glTF["nodes"][nodeIndex]["skin"] = 0;
+
+    glTF["buffers"][0]["byteLength"] = data.size();
 
     //
 	// Saving everything
