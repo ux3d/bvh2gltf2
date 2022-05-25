@@ -14,7 +14,10 @@ using json = nlohmann::json;
 //
 
 struct NodeData {
-	std::vector<std::string> channels;
+	std::vector<std::string> positionChannels;
+	std::vector<std::string> rotationChannels;
+	std::vector<float> positionData;
+	std::vector<float> rotationData;
 };
 
 struct HierarchyData {
@@ -137,7 +140,7 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 		{
 			offset++;
 
-			printf("Entering node '%s'\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str());
+			printf("Info: Entering node '%s'\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str());
 		}
 		else if (line.rfind("OFFSET", 0) == 0)
 		{
@@ -156,6 +159,8 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			glTF["nodes"][nodeIndex]["translation"].push_back(z);
 
 			currentMatrix = parentMatrix * glm::translate(glm::mat4(), glm::vec3(x, y, z));
+
+			printf("Info: Node '%s' has offsets %f %f %f\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str(), x, y, z);
 		}
 		else if (line.rfind("CHANNELS", 0) == 0)
 		{
@@ -168,11 +173,23 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			{
 				if (currentToken == 1)
 				{
-					printf("Node '%s' has %s channels\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str(), token.c_str());
+					printf("Info: Node '%s' has %s channels\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str(), token.c_str());
 				}
 				else if (currentToken >= 2)
 				{
-					hierarchyData.nodeDatas[nodeIndex].channels.push_back(token);
+					if (token == "Xposition" || token == "Yposition" || token == "Zposition")
+					{
+						hierarchyData.nodeDatas[nodeIndex].positionChannels.push_back(token);
+					}
+					else if (token == "Xrotation" || token == "Yrotation" || token == "Zrotation")
+					{
+						hierarchyData.nodeDatas[nodeIndex].rotationChannels.push_back(token);
+					}
+					else
+					{
+						printf("Unknown (HIERARCHY) token '%s'\n", token.c_str());
+						return false;
+					}
 				}
 
 				currentToken++;
@@ -189,12 +206,12 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			memcpy(byteData.data() + offset, glm::value_ptr(inverseMatrix), 16 * sizeof(float));
 
 			// Leave node
-			printf("Leaving node '%s'\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str());
+			printf("Info: Leaving node '%s'\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str());
 			return true;
 		}
 		else
 		{
-			printf("Unknown (HIERARCHY) '%s'\n", line.c_str());
+			printf("Error: Unknown in HIERARCHY '%s'\n", line.c_str());
 			return false;
 		}
 	}
@@ -220,6 +237,7 @@ bool gatherSamples(MotionData& motionData, size_t& offset, const std::vector<std
 		{
 			motionData.frameDatas[currentFrame].values.push_back(std::stof(token));
 		}
+		printf("Info: Frame %zu has %zu samples\n", currentFrame, motionData.frameDatas[currentFrame].values.size());
 		currentFrame++;
 	}
 
@@ -254,7 +272,7 @@ bool generateMotion(HierarchyData& hierarchyData, MotionData& motionData, size_t
 		}
 		else
 		{
-			printf("Unknown (MOTION) '%s'\n", line.c_str());
+			printf("Error: Unknown in MOTION '%s'\n", line.c_str());
 
 			return false;
 		}
@@ -288,7 +306,7 @@ bool generate(json& glTF, std::vector<uint8_t>& byteData, HierarchyData& hierarc
 		else
 		{
 			offset++;
-			printf("Unknown '%s'\n", line.c_str());
+			printf("Error: Unknown '%s'\n", line.c_str());
 		}
 	}
 
@@ -427,7 +445,29 @@ int main(int argc, char *argv[])
 
     //
 
-    // TODO: Generate animations, as we now do have all the data.
+	size_t currentDataIndex = 0;
+
+    // Sorting data per node, target position and rotation
+    for (size_t currentFrameIndex = 0; currentFrameIndex < motionData.frames; currentFrameIndex++)
+    {
+    	currentDataIndex = 0;
+
+    	for (auto& currentNode : hierarchyData.nodeDatas)
+    	{
+        	for (size_t p = 0; p < currentNode.positionChannels.size(); p++)
+    		{
+        		currentNode.positionData.push_back(motionData.frameDatas[currentFrameIndex].values[currentDataIndex]);
+    			currentDataIndex++;
+    		}
+    		for (size_t r = 0; r < currentNode.rotationChannels.size(); r++)
+    		{
+    			currentNode.rotationData.push_back(motionData.frameDatas[currentFrameIndex].values[currentDataIndex]);
+    			currentDataIndex++;
+    		}
+    	}
+    }
+
+    // TODO: Generate animations, as we now do have all the data sorted out.
 
     //
 
