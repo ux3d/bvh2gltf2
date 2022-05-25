@@ -429,6 +429,11 @@ int main(int argc, char *argv[])
 
     glTF["nodes"] = json::array();
 
+    glTF["animations"] = json::array();
+    glTF["animations"].push_back(json::object());
+    glTF["animations"][0]["channels"] = json::array();
+    glTF["animations"][0]["samplers"] = json::array();
+
     //
     // BVH to glTF
     //
@@ -535,7 +540,7 @@ int main(int argc, char *argv[])
 
 		    byteOffset = data.size();
 
-			// TODO: Implement animation sampler etc.
+		    // TODO: Implement animation sampler etc.
 		}
 		if (currentNode.rotationChannels.size() > 0)
 		{
