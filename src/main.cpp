@@ -487,6 +487,41 @@ int main(int argc, char *argv[])
     byteOffset = data.size();
 
     //
+    // Key frames
+    //
+
+    std::vector<float> keyframes(motionData.frames);
+    for (size_t i = 0; i < motionData.frames; i++)
+    {
+    	keyframes[i] = motionData.frameTime * (float)i;
+    }
+
+	size_t bufferViewIndex = glTF["bufferViews"].size();
+
+    glTF["bufferViews"].push_back(json::object());
+    glTF["bufferViews"][bufferViewIndex]["buffer"] = 0;
+    glTF["bufferViews"][bufferViewIndex]["byteOffset"] = byteOffset;
+    glTF["bufferViews"][bufferViewIndex]["byteLength"] = motionData.frames * sizeof(float);
+
+	size_t accessorIndex = glTF["accessors"].size();
+
+    glTF["accessors"].push_back(json::object());
+    glTF["accessors"][accessorIndex]["bufferView"] = bufferViewIndex;
+    glTF["accessors"][accessorIndex]["componentType"] = 5126;
+    glTF["accessors"][accessorIndex]["count"] = motionData.frames;
+    glTF["accessors"][accessorIndex]["type"] = "SCALAR";
+
+    glTF["accessors"][accessorIndex]["min"] = keyframes.front();
+    glTF["accessors"][accessorIndex]["max"] = keyframes.back();
+
+    data.resize(data.size() + keyframes.size() * sizeof(float));
+    memcpy(data.data() + byteOffset, keyframes.data(), keyframes.size() * sizeof(float));
+
+    byteOffset = data.size();
+
+    size_t inputAccessorIndex = accessorIndex;
+
+	//
 
     // Generate animations, as we now do have all the data sorted out.
 	for (size_t currentNodeIndex = 0; currentNodeIndex < hierarchyData.nodeDatas.size(); currentNodeIndex++)
@@ -495,7 +530,7 @@ int main(int argc, char *argv[])
 
 		if (currentNode.positionChannels.size() > 0)
 		{
-			size_t bufferViewIndex = glTF["bufferViews"].size();
+			bufferViewIndex = glTF["bufferViews"].size();
 
 		    glTF["bufferViews"].push_back(json::object());
 		    glTF["bufferViews"][bufferViewIndex]["buffer"] = 0;
@@ -504,7 +539,7 @@ int main(int argc, char *argv[])
 
 		    //
 
-			size_t accessorIndex = glTF["accessors"].size();
+			accessorIndex = glTF["accessors"].size();
 
 		    glTF["accessors"].push_back(json::object());
 		    glTF["accessors"][accessorIndex]["bufferView"] = bufferViewIndex;
@@ -544,7 +579,7 @@ int main(int argc, char *argv[])
 		}
 		if (currentNode.rotationChannels.size() > 0)
 		{
-			size_t bufferViewIndex = glTF["bufferViews"].size();
+			bufferViewIndex = glTF["bufferViews"].size();
 
 		    glTF["bufferViews"].push_back(json::object());
 		    glTF["bufferViews"][bufferViewIndex]["buffer"] = 0;
@@ -553,7 +588,7 @@ int main(int argc, char *argv[])
 
 		    //
 
-			size_t accessorIndex = glTF["accessors"].size();
+			accessorIndex = glTF["accessors"].size();
 
 		    glTF["accessors"].push_back(json::object());
 		    glTF["accessors"][accessorIndex]["bufferView"] = bufferViewIndex;
