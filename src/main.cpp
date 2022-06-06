@@ -519,9 +519,14 @@ int main(int argc, char *argv[])
 
     byteOffset = data.size();
 
+    //
+
     size_t inputAccessorIndex = accessorIndex;
 
 	//
+
+    size_t animationChannelIndex;
+    size_t animationSamplerIndex;
 
     // Generate animations, as we now do have all the data sorted out.
 	for (size_t currentNodeIndex = 0; currentNodeIndex < hierarchyData.nodeDatas.size(); currentNodeIndex++)
@@ -574,6 +579,11 @@ int main(int argc, char *argv[])
 		    memcpy(data.data() + byteOffset, finalPositionData.data(), finalPositionData.size() * sizeof(float));
 
 		    byteOffset = data.size();
+
+		    //
+
+		    animationChannelIndex = glTF["animations"][0]["channels"].size();
+		    animationSamplerIndex = glTF["animations"][0]["samplers"].size();
 
 		    // TODO: Implement animation sampler etc.
 		}
@@ -633,7 +643,12 @@ int main(int argc, char *argv[])
 
 		    byteOffset = data.size();
 
-			// TODO: Implement animation sampler etc.
+		    //
+
+		    animationChannelIndex = glTF["animations"][0]["channels"].size();
+		    animationSamplerIndex = glTF["animations"][0]["samplers"].size();
+
+		    // TODO: Implement animation sampler etc.
 		}
 	}
 
