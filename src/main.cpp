@@ -421,6 +421,7 @@ int main(int argc, char *argv[])
     glTF["accessors"].push_back(json::object());
     glTF["accessors"][0]["componentType"] = 5126;
     glTF["accessors"][0]["type"] = "MAT4";
+    glTF["accessors"][0]["bufferView"] = 0;
 
     glTF["skins"] = json::array();
     glTF["skins"].push_back(json::object());
@@ -431,8 +432,8 @@ int main(int argc, char *argv[])
 
     glTF["animations"] = json::array();
     glTF["animations"].push_back(json::object());
-    glTF["animations"][0]["channels"] = json::array();
     glTF["animations"][0]["samplers"] = json::array();
+    glTF["animations"][0]["channels"] = json::array();
 
     //
     // BVH to glTF
@@ -511,8 +512,11 @@ int main(int argc, char *argv[])
     glTF["accessors"][accessorIndex]["count"] = motionData.frames;
     glTF["accessors"][accessorIndex]["type"] = "SCALAR";
 
-    glTF["accessors"][accessorIndex]["min"] = keyframes.front();
-    glTF["accessors"][accessorIndex]["max"] = keyframes.back();
+    glTF["accessors"][accessorIndex]["min"] = json::array();
+    glTF["accessors"][accessorIndex]["min"].push_back(keyframes.front());
+
+    glTF["accessors"][accessorIndex]["max"] = json::array();
+    glTF["accessors"][accessorIndex]["max"].push_back(keyframes.back());
 
     data.resize(data.size() + keyframes.size() * sizeof(float));
     memcpy(data.data() + byteOffset, keyframes.data(), keyframes.size() * sizeof(float));
@@ -525,8 +529,8 @@ int main(int argc, char *argv[])
 
 	//
 
-    size_t animationChannelIndex;
     size_t animationSamplerIndex;
+    size_t animationChannelIndex;
 
     // Generate animations, as we now do have all the data sorted out.
 	for (size_t currentNodeIndex = 0; currentNodeIndex < hierarchyData.nodeDatas.size(); currentNodeIndex++)
@@ -582,10 +586,20 @@ int main(int argc, char *argv[])
 
 		    //
 
-		    animationChannelIndex = glTF["animations"][0]["channels"].size();
 		    animationSamplerIndex = glTF["animations"][0]["samplers"].size();
+		    animationChannelIndex = glTF["animations"][0]["channels"].size();
 
-		    // TODO: Implement animation sampler etc.
+		    glTF["animations"][0]["samplers"].push_back(json::object());
+		    glTF["animations"][0]["channels"].push_back(json::object());
+
+		    glTF["animations"][0]["samplers"][animationSamplerIndex]["input"] = inputAccessorIndex;
+		    glTF["animations"][0]["samplers"][animationSamplerIndex]["interpolation"] = "LINEAR";
+		    glTF["animations"][0]["samplers"][animationSamplerIndex]["output"] = accessorIndex;
+
+		    glTF["animations"][0]["channels"][animationChannelIndex]["sampler"] = animationSamplerIndex;
+		    glTF["animations"][0]["channels"][animationChannelIndex]["target"] = json::object();
+		    glTF["animations"][0]["channels"][animationChannelIndex]["target"]["path"] = "translation";
+		    glTF["animations"][0]["channels"][animationChannelIndex]["target"]["node"] = currentNodeIndex;
 		}
 		if (currentNode.rotationChannels.size() > 0)
 		{
@@ -648,7 +662,17 @@ int main(int argc, char *argv[])
 		    animationChannelIndex = glTF["animations"][0]["channels"].size();
 		    animationSamplerIndex = glTF["animations"][0]["samplers"].size();
 
-		    // TODO: Implement animation sampler etc.
+		    glTF["animations"][0]["samplers"].push_back(json::object());
+		    glTF["animations"][0]["channels"].push_back(json::object());
+
+		    glTF["animations"][0]["samplers"][animationSamplerIndex]["input"] = inputAccessorIndex;
+		    glTF["animations"][0]["samplers"][animationSamplerIndex]["interpolation"] = "LINEAR";
+		    glTF["animations"][0]["samplers"][animationSamplerIndex]["output"] = accessorIndex;
+
+		    glTF["animations"][0]["channels"][animationChannelIndex]["sampler"] = animationSamplerIndex;
+		    glTF["animations"][0]["channels"][animationChannelIndex]["target"] = json::object();
+		    glTF["animations"][0]["channels"][animationChannelIndex]["target"]["path"] = "rotation";
+		    glTF["animations"][0]["channels"][animationChannelIndex]["target"]["node"] = currentNodeIndex;
 		}
 	}
 
