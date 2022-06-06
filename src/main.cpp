@@ -159,7 +159,7 @@ bool generateHierarchy(json& glTF, size_t nodeIndex, std::vector<uint8_t>& byteD
 			glTF["nodes"][nodeIndex]["translation"].push_back(y);
 			glTF["nodes"][nodeIndex]["translation"].push_back(z);
 
-			currentMatrix = parentMatrix * glm::translate(glm::mat4(), glm::vec3(x, y, z));
+			currentMatrix = parentMatrix * glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
 
 			printf("Info: Node '%s' has offsets %f %f %f\n", glTF["nodes"][nodeIndex]["name"].get<std::string>().c_str(), x, y, z);
 		}
