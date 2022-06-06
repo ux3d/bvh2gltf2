@@ -634,15 +634,15 @@ int main(int argc, char *argv[])
 
 		    		if (currentNode.rotationChannels[i] == "Xrotation")
 		    		{
-		    			matrix = matrix * glm::rotate(angle, glm::vec3(1.0f, 0.0f, 0.0f));
+		    			matrix = matrix * glm::rotate(glm::radians(angle), glm::vec3(1.0f, 0.0f, 0.0f));
 		    		}
 		    		else if (currentNode.rotationChannels[i] == "Yrotation")
 		    		{
-		    			matrix = matrix * glm::rotate(angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		    			matrix = matrix * glm::rotate(glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
 		    		}
 		    		else if (currentNode.rotationChannels[i] == "Zrotation")
 		    		{
-		    			matrix = matrix * glm::rotate(angle, glm::vec3(0.0f, 0.0f, 1.0f));
+		    			matrix = matrix * glm::rotate(glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
 		    		}
 		    	}
 
