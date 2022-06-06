@@ -628,19 +628,21 @@ int main(int argc, char *argv[])
 		    {
 		    	glm::mat4 matrix(1.0f);
 
-		    	for (size_t i = 0; i < currentNode.positionChannels.size(); i++)
+		    	for (size_t i = 0; i < currentNode.rotationChannels.size(); i++)
 		    	{
-		    		if (currentNode.positionChannels[i] == "Xrotation")
+		    		float angle = currentNode.rotationData[currentFrameIndex * currentNode.rotationChannels.size() + i];
+
+		    		if (currentNode.rotationChannels[i] == "Xrotation")
 		    		{
-		    			matrix = glm::rotate(matrix, currentNode.rotationData[currentFrameIndex * currentNode.rotationChannels.size() + i], glm::vec3(1.0f, 0.0f, 0.0f));
+		    			matrix = matrix * glm::rotate(angle, glm::vec3(1.0f, 0.0f, 0.0f));
 		    		}
-		    		else if (currentNode.positionChannels[i] == "Yrotation")
+		    		else if (currentNode.rotationChannels[i] == "Yrotation")
 		    		{
-		    			matrix = glm::rotate(matrix, currentNode.rotationData[currentFrameIndex * currentNode.rotationChannels.size() + i], glm::vec3(0.0f, 1.0f, 0.0f));
+		    			matrix = matrix * glm::rotate(angle, glm::vec3(0.0f, 1.0f, 0.0f));
 		    		}
-		    		else if (currentNode.positionChannels[i] == "Zrotation")
+		    		else if (currentNode.rotationChannels[i] == "Zrotation")
 		    		{
-		    			matrix = glm::rotate(matrix, currentNode.rotationData[currentFrameIndex * currentNode.rotationChannels.size() + i], glm::vec3(0.0f, 0.0f, 1.0f));
+		    			matrix = matrix * glm::rotate(angle, glm::vec3(0.0f, 0.0f, 1.0f));
 		    		}
 		    	}
 
